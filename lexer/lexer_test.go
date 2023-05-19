@@ -56,9 +56,9 @@ func TestNexToken(t *testing.T) {
 	input2 := ""
 	testCase(&input2, &[]token.Token{{Type: token.EOF, Literal: ""}})
 
-	input3 := "let five = 5;"
+	input3 := ".let five = 5;"
 	testCase(&input3, &[]token.Token{
-		{Type: token.LET, Literal: "let"},
+		{Type: token.LET, Literal: ".let"},
 		{Type: token.IDENT, Literal: "five"},
 		{Type: token.ASSIGN, Literal: "="},
 		{Type: token.INT, Literal: "5"},
@@ -66,9 +66,9 @@ func TestNexToken(t *testing.T) {
 		{Type: token.EOF, Literal: ""},
 	})
 
-	input4 := "return x = 3 == 5;"
+	input4 := ".return x = 3 == 5;"
 	testCase(&input4, &[]token.Token{
-		{Type: token.RETURN, Literal: "return"},
+		{Type: token.RETURN, Literal: ".return"},
 		{Type: token.IDENT, Literal: "x"},
 		{Type: token.ASSIGN, Literal: "="},
 		{Type: token.INT, Literal: "3"},
@@ -81,6 +81,16 @@ func TestNexToken(t *testing.T) {
 	input5 := "`"
 	testCase(&input5, &[]token.Token{
 		{Type: token.ILLEGAL, Literal: "`"},
+		{Type: token.EOF, Literal: ""},
+	})
+
+	input6 := ".let letter = 5;"
+	testCase(&input6, &[]token.Token{
+		{Type: token.LET, Literal: ".let"},
+		{Type: token.IDENT, Literal: "letter"},
+		{Type: token.ASSIGN, Literal: "="},
+		{Type: token.INT, Literal: "5"},
+		{Type: token.SEMICOLON, Literal: ";"},
 		{Type: token.EOF, Literal: ""},
 	})
 }

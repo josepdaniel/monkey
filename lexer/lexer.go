@@ -85,9 +85,6 @@ func withBacktrack(reader reader) reader {
 	}
 }
 
-// Combines reading a literal with backtracking
-func backtrackLit(literal string) reader { return withBacktrack(readLiteral(literal)) }
-
 // Advance until the lexer is not in a whitespace position
 func (lexer Lexer) skipWhitespace() Lexer {
 	lexer, _ = lexer.until(func(ch byte) bool {
