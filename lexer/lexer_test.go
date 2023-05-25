@@ -1,7 +1,6 @@
 package lexer
 
 import (
-	"monkey/token"
 	"testing"
 )
 
@@ -21,11 +20,11 @@ func TestInNextPosition(t *testing.T) {
 
 func TestNexToken(t *testing.T) {
 
-	testCase := func(input *string, expected *[]token.Token) {
+	testCase := func(input *string, expected *[]Token) {
 		lexer := New(input)
 
 		for i, expected := range *expected {
-			var tok token.Token
+			var tok Token
 			lexer, tok = lexer.Next()
 
 			if tok.Type != expected.Type {
@@ -33,66 +32,90 @@ func TestNexToken(t *testing.T) {
 					i, expected.Type, tok.Type)
 			}
 
-			if tok.Literal != expected.Literal {
+			if tok.Lexeme != expected.Lexeme {
 				t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q",
-					i, expected.Literal, tok.Literal)
+					i, expected.Lexeme, tok.Lexeme)
 			}
 		}
 	}
 
 	input1 := `=+(){},;`
-	testCase(&input1, &[]token.Token{
-		{Type: token.ASSIGN, Literal: "="},
-		{Type: token.PLUS, Literal: "+"},
-		{Type: token.LPAREN, Literal: "("},
-		{Type: token.RPAREN, Literal: ")"},
-		{Type: token.LBRACE, Literal: "{"},
-		{Type: token.RBRACE, Literal: "}"},
-		{Type: token.COMMA, Literal: ","},
-		{Type: token.SEMICOLON, Literal: ";"},
-		{Type: token.EOF, Literal: ""},
+	testCase(&input1, &[]Token{
+		{Type: ASSIGN, Lexeme: "="},
+		{Type: PLUS, Lexeme: "+"},
+		{Type: LPAREN, Lexeme: "("},
+		{Type: RPAREN, Lexeme: ")"},
+		{Type: LBRACE, Lexeme: "{"},
+		{Type: RBRACE, Lexeme: "}"},
+		{Type: COMMA, Lexeme: ","},
+		{Type: SEMICOLON, Lexeme: ";"},
+		{Type: EOF, Lexeme: ""},
 	})
 
 	input2 := ""
-	testCase(&input2, &[]token.Token{{Type: token.EOF, Literal: ""}})
+	testCase(&input2, &[]Token{{Type: EOF, Lexeme: ""}})
 
-	input3 := ".let five = 5;"
-	testCase(&input3, &[]token.Token{
-		{Type: token.LET, Literal: ".let"},
-		{Type: token.IDENT, Literal: "five"},
-		{Type: token.ASSIGN, Literal: "="},
-		{Type: token.INT, Literal: "5"},
-		{Type: token.SEMICOLON, Literal: ";"},
-		{Type: token.EOF, Literal: ""},
+	input3 := "let five = 5;"
+	testCase(&input3, &[]Token{
+		{Type: LET, Lexeme: "let"},
+		{Type: IDENT, Lexeme: "five"},
+		{Type: ASSIGN, Lexeme: "="},
+		{Type: INT, Lexeme: "5"},
+		{Type: SEMICOLON, Lexeme: ";"},
+		{Type: EOF, Lexeme: ""},
 	})
 
-	input4 := ".return x = 3 == 5;"
-	testCase(&input4, &[]token.Token{
-		{Type: token.RETURN, Literal: ".return"},
-		{Type: token.IDENT, Literal: "x"},
-		{Type: token.ASSIGN, Literal: "="},
-		{Type: token.INT, Literal: "3"},
-		{Type: token.EQ, Literal: "=="},
-		{Type: token.INT, Literal: "5"},
-		{Type: token.SEMICOLON, Literal: ";"},
-		{Type: token.EOF, Literal: ""},
+	input4 := "return x = 3 == 5;"
+	testCase(&input4, &[]Token{
+		{Type: RETURN, Lexeme: "return"},
+		{Type: IDENT, Lexeme: "x"},
+		{Type: ASSIGN, Lexeme: "="},
+		{Type: INT, Lexeme: "3"},
+		{Type: EQ, Lexeme: "=="},
+		{Type: INT, Lexeme: "5"},
+		{Type: SEMICOLON, Lexeme: ";"},
+		{Type: EOF, Lexeme: ""},
 	})
 
 	input5 := "`"
-	testCase(&input5, &[]token.Token{
-		{Type: token.ILLEGAL, Literal: "`"},
-		{Type: token.EOF, Literal: ""},
+	testCase(&input5, &[]Token{
+		{Type: ILLEGAL, Lexeme: "`"},
+		{Type: EOF, Lexeme: ""},
 	})
 
-	input6 := ".let letter = 5;"
-	testCase(&input6, &[]token.Token{
-		{Type: token.LET, Literal: ".let"},
-		{Type: token.IDENT, Literal: "letter"},
-		{Type: token.ASSIGN, Literal: "="},
-		{Type: token.INT, Literal: "5"},
-		{Type: token.SEMICOLON, Literal: ";"},
-		{Type: token.EOF, Literal: ""},
+	input6 := "let letter = 5;"
+	testCase(&input6, &[]Token{
+		{Type: LET, Lexeme: "let"},
+		{Type: IDENT, Lexeme: "letter"},
+		{Type: ASSIGN, Lexeme: "="},
+		{Type: INT, Lexeme: "5"},
+		{Type: SEMICOLON, Lexeme: ";"},
+		{Type: EOF, Lexeme: ""},
 	})
+
+	input7 := "def myFunc(arg): int = return 5;"
+	testCase(&input7, &[]Token{
+		{Type: FUNCTION, Lexeme: "def"},
+		{Type: IDENT, Lexeme: "myFunc"},
+		{Type: LPAREN, Lexeme: "("},
+		{Type: IDENT, Lexeme: "arg"},
+		{Type: RPAREN, Lexeme: ")"},
+		{Type: ASSIGN_T, Lexeme: ":"},
+		{Type: IDENT, Lexeme: "int"},
+		{Type: ASSIGN, Lexeme: "="},
+		{Type: RETURN, Lexeme: "return"},
+		{Type: INT, Lexeme: "5"},
+	})
+
+	input8 := "8 -9 100 8.2"
+	testCase(&input8, &[]Token{
+		{Type: INT, Lexeme: "8"},
+		{Type: INT, Lexeme: "-9"},
+		{Type: INT, Lexeme: "100"},
+		{Type: FLOAT, Lexeme: "8.2"},
+	})
+
+	// input9 := "let x: int = 5; def isMultipleof5And2(n: int) = {}"
 }
 
 func TestReadWord(t *testing.T) {

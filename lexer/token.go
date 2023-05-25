@@ -1,29 +1,31 @@
-package token
+package lexer
 
 type TokenType string
 
 type Token struct {
-	Type    TokenType
-	Literal string
+	Type   TokenType
+	Lexeme string
 }
 
-// We define keywords with a leading period to distinguish them from regular identifiers
 var Keywords = map[string]TokenType{
-	".fn":     FUNCTION,
-	".let":    LET,
-	".true":   TRUE,
-	".false":  FALSE,
-	".if":     IF,
-	".else":   ELSE,
-	".return": RETURN,
+	"def":    FUNCTION,
+	"let":    LET,
+	"true":   TRUE,
+	"false":  FALSE,
+	"if":     IF,
+	"else":   ELSE,
+	"return": RETURN,
 }
 
 var DoubleCharOperators = map[string]TokenType{
 	"==": EQ,
 	"!=": NEQ,
+	"&&": AND,
+	"||": OR,
 }
 
 var Operators = map[string]TokenType{
+	":": ASSIGN_T,
 	"=": ASSIGN,
 	"+": PLUS,
 	"-": MINUS,
@@ -48,8 +50,11 @@ const (
 	EOF       TokenType = "EOF"
 	IDENT     TokenType = "IDENT"
 	INT       TokenType = "INT"
+	FLOAT     TokenType = "FLOAT"
 	EQ        TokenType = "=="
 	NEQ       TokenType = "!="
+	AND       TokenType = "&&"
+	OR        TokenType = "||"
 	ASSIGN    TokenType = "="
 	PLUS      TokenType = "+"
 	COMMA     TokenType = ","
@@ -64,6 +69,7 @@ const (
 	ASTERISK  TokenType = "*"
 	LT        TokenType = "<"
 	GT        TokenType = ">"
+	ASSIGN_T  TokenType = ":"
 	FUNCTION  TokenType = "FUNCTION"
 	LET       TokenType = "LET"
 	TRUE      TokenType = "TRUE"

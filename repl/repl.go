@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"monkey/lexer"
-	"monkey/token"
 )
 
 func Start(in io.Reader, out io.Writer) {
@@ -20,7 +19,7 @@ func Start(in io.Reader, out io.Writer) {
 		line := scanner.Text()
 		l := lexer.New(&line)
 
-		for l, tok := l.Next(); tok.Type != token.EOF; l, tok = l.Next() {
+		for l, tok := l.Next(); tok.Type != lexer.EOF; l, tok = l.Next() {
 			fmt.Printf("%+v\n", tok)
 		}
 	}

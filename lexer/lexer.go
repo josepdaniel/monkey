@@ -1,7 +1,8 @@
 package lexer
 
 import (
-	"monkey/token"
+	"fmt"
+	"strconv"
 )
 
 type Lexer struct {
@@ -9,6 +10,11 @@ type Lexer struct {
 	position int
 }
 
+// Convention for a reader:
+//   - The returned lexer should have its pointer advanced to the point
+//     where reading stopped, even if the reader failed
+//   - The returned string pointer should be nil if the reader failed,
+//     otherwise it should contain the raw string read from the input
 type reader func(lexer Lexer) (Lexer, *string)
 
 func New(input *string) Lexer {
@@ -53,11 +59,41 @@ var readWord reader = func(lexer Lexer) (Lexer, *string) {
 	})
 }
 
-// Reads a number (no floats)
-var readNumber reader = func(lexer Lexer) (Lexer, *string) {
-	return lexer.until(func(ch byte) bool {
-		return !isDigit(ch)
+// Reads a floating point number
+var readInt reader = func(lexer Lexer) (Lexer, *string) {
+	lexer, lexeme := lexer.until(func(ch byte) bool {
+		return !isDigit(ch) && ch != '.' && ch != '-'
 	})
+
+	if lexeme == nil {
+		return lexer, lexeme
+	}
+	_, err := strconv.ParseInt(*lexeme, 10, 16)
+
+	if err != nil {
+		fmt.Println(err)
+		return lexer, nil
+	}
+
+	return lexer, lexeme
+}
+
+var readFloat reader = func(lexer Lexer) (Lexer, *string) {
+	lexer, lexeme := lexer.until(func(ch byte) bool {
+		return !isDigit(ch) && ch != '.' && ch != '-'
+	})
+
+	if lexeme == nil {
+		return lexer, lexeme
+	}
+	_, err := strconv.ParseFloat(*lexeme, 32)
+
+	if err != nil {
+		fmt.Println(err)
+		return lexer, nil
+	}
+
+	return lexer, lexeme
 }
 
 // Reads a literal string
@@ -93,35 +129,43 @@ func (lexer Lexer) skipWhitespace() Lexer {
 	return lexer
 }
 
-func readToken(lexer Lexer, litToTokenMapping map[string]token.TokenType) (Lexer, *token.Token) {
+func readToken(lexer Lexer, litToTokenMapping map[string]TokenType) (Lexer, *Token) {
 
 	for key, value := range litToTokenMapping {
 		if lexer, lit := withBacktrack(readLiteral(key))(lexer); lit != nil {
-			return lexer, &token.Token{Type: value, Literal: *lit}
+			return lexer, &Token{Type: value, Lexeme: *lit}
 		}
 	}
 	return lexer, nil
 }
 
-func (lexer Lexer) Next() (Lexer, token.Token) {
+func (lexer Lexer) Next() (Lexer, Token) {
 	lexer = lexer.skipWhitespace()
 
 	if lexer.currentChar() == 0 {
-		return lexer, token.Token{Type: token.EOF, Literal: ""}
-	} else if lexer, tok := readToken(lexer, token.DoubleCharOperators); tok != nil {
+		return lexer, Token{Type: EOF, Lexeme: ""}
+	} else if lexer, lit := withBacktrack(readInt)(lexer); lit != nil {
+		return lexer, Token{Type: INT, Lexeme: *lit}
+	} else if lexer, lit := withBacktrack(readFloat)(lexer); lit != nil {
+		return lexer, Token{Type: FLOAT, Lexeme: *lit}
+	} else if lexer, tok := readToken(lexer, DoubleCharOperators); tok != nil {
 		return lexer, *tok
-	} else if lexer, tok := readToken(lexer, token.Operators); tok != nil {
+	} else if lexer, tok := readToken(lexer, Operators); tok != nil {
 		return lexer, *tok
-	} else if lexer, tok := readToken(lexer, token.Delimiters); tok != nil {
-		return lexer, *tok
-	} else if lexer, tok := readToken(lexer, token.Keywords); tok != nil {
+	} else if lexer, tok := readToken(lexer, Delimiters); tok != nil {
 		return lexer, *tok
 	} else if lexer, lit := withBacktrack(readWord)(lexer); lit != nil {
-		return lexer, token.Token{Type: token.IDENT, Literal: *lit}
-	} else if lexer, lit := withBacktrack(readNumber)(lexer); lit != nil {
-		return lexer, token.Token{Type: token.INT, Literal: *lit}
+
+		// If the word is a keyword, treat is as such
+		if tok, ok := Keywords[*lit]; ok {
+			return lexer, Token{Type: tok, Lexeme: *lit}
+		}
+
+		// Otherwise treat the word as an identifier (e.g. variable name)
+		return lexer, Token{Type: IDENT, Lexeme: *lit}
+
 	} else {
-		return lexer.inNextPosition(), token.Token{Type: token.ILLEGAL, Literal: string(lexer.currentChar())}
+		return lexer.inNextPosition(), Token{Type: ILLEGAL, Lexeme: string(lexer.currentChar())}
 	}
 
 }
