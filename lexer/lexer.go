@@ -1,13 +1,12 @@
 package lexer
 
 import (
-	"fmt"
 	"strconv"
 )
 
 type Lexer struct {
-	input    *string
-	position int
+	Input    *string
+	Position int
 }
 
 // Convention for a reader:
@@ -18,21 +17,21 @@ type Lexer struct {
 type reader func(lexer Lexer) (Lexer, *string)
 
 func New(input *string) Lexer {
-	return Lexer{input: input, position: 0}
+	return Lexer{Input: input, Position: 0}
 }
 
 // Returns a new lexer with the new state
 func (lexer Lexer) inNextPosition() Lexer {
-	nextPosition := minInt(len(*lexer.input), lexer.position+1)
-	return Lexer{input: lexer.input, position: nextPosition}
+	nextPosition := minInt(len(*lexer.Input), lexer.Position+1)
+	return Lexer{Input: lexer.Input, Position: nextPosition}
 }
 
 // Return the current character
 func (lexer Lexer) currentChar() byte {
-	if lexer.position >= len(*lexer.input) {
+	if lexer.Position >= len(*lexer.Input) {
 		return 0
 	} else {
-		return (*lexer.input)[lexer.position]
+		return (*lexer.Input)[lexer.Position]
 	}
 }
 
@@ -44,11 +43,11 @@ func (lexer Lexer) until(stop func(ch byte) bool) (Lexer, *string) {
 		return lexer, nil
 	}
 
-	initialPosition := lexer.position
+	initialPosition := lexer.Position
 	for !stop(lexer.currentChar()) {
 		lexer = lexer.inNextPosition()
 	}
-	result := (*lexer.input)[initialPosition:lexer.position]
+	result := (*lexer.Input)[initialPosition:lexer.Position]
 	return lexer, &result
 }
 
@@ -71,7 +70,6 @@ var readInt reader = func(lexer Lexer) (Lexer, *string) {
 	_, err := strconv.ParseInt(*lexeme, 10, 16)
 
 	if err != nil {
-		fmt.Println(err)
 		return lexer, nil
 	}
 
@@ -89,7 +87,6 @@ var readFloat reader = func(lexer Lexer) (Lexer, *string) {
 	_, err := strconv.ParseFloat(*lexeme, 32)
 
 	if err != nil {
-		fmt.Println(err)
 		return lexer, nil
 	}
 

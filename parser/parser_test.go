@@ -105,4 +105,7 @@ func TestParseAssignment(t *testing.T) {
 	test("let foo: int = 123", &AssignStmt{"foo", "int", &IntExpr{123}})
 	test("let bar: long = -1928", &AssignStmt{"bar", "long", &IntExpr{-1928}})
 
+	test("let bar: long = 3 - 4 + foo", &AssignStmt{"bar", "long",
+		&SubExpr{&IntExpr{3}, &AddExpr{&IntExpr{4}, &IdentExpr{"foo"}}}})
+
 }

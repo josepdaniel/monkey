@@ -13,8 +13,8 @@ func TestInNextPosition(t *testing.T) {
 	for i := 0; i < len(input)*2; i++ {
 		lexer = lexer.inNextPosition()
 	}
-	if lexer.position > len(input) {
-		t.Fatalf("Expected position to be l.t.e \"%d\", got \"%d\"", len(input), lexer.position)
+	if lexer.Position > len(input) {
+		t.Fatalf("Expected position to be l.t.e \"%d\", got \"%d\"", len(input), lexer.Position)
 	}
 }
 
@@ -161,8 +161,8 @@ func TestReadLiteral(t *testing.T) {
 	if result != nil {
 		t.Fatalf("Expected \"nil\", got \"%s\"", *result)
 	}
-	if lexer.position != 2 {
-		t.Fatalf("Expected position to be \"2\", got \"%d\"", lexer.position)
+	if lexer.Position != 2 {
+		t.Fatalf("Expected position to be \"2\", got \"%d\"", lexer.Position)
 	}
 }
 
@@ -172,8 +172,8 @@ func TestBacktrack(t *testing.T) {
 		lexer := New(&input)
 		reader := withBacktrack(readLiteral(lit))
 		lexer, _ = reader(lexer)
-		if lexer.position != expectedPos {
-			t.Fatalf("Expected position to be \"%d\", got \"%d\"", expectedPos, lexer.position)
+		if lexer.Position != expectedPos {
+			t.Fatalf("Expected position to be \"%d\", got \"%d\"", expectedPos, lexer.Position)
 		}
 	}
 

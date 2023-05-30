@@ -18,7 +18,7 @@ type (
 	}
 
 	Program struct {
-		Nodes []Node
+		Statements []Statement
 	}
 )
 
@@ -37,6 +37,26 @@ type IntExpr struct {
 
 func (*IntExpr) isExpression() {}
 func (*IntExpr) isNode()       {}
+
+// Addition ---------------------------
+
+type AddExpr struct {
+	Lhs Expression
+	Rhs Expression
+}
+
+func (*AddExpr) isExpression() {}
+func (*AddExpr) isNode()       {}
+
+// Subtraction ------------------------
+
+type SubExpr struct {
+	Lhs Expression
+	Rhs Expression
+}
+
+func (*SubExpr) isExpression() {}
+func (*SubExpr) isNode()       {}
 
 // Assignment -------------------------
 type AssignStmt struct {
