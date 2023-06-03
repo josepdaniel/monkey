@@ -80,10 +80,10 @@ func parseExpressionEnd(l lexer.Lexer, start Expression) (lexer.Lexer, Expressio
 	return l, nil
 }
 
-// add := "+", expr
-func parseAddition(l lexer.Lexer, lhs Expression) (lexer.Lexer, *AddExpr) {
-	new, plus := l.Next()
-	if plus.Type != lexer.PLUS {
+func parseInfix(l lexer.Lexer, lhs Expression, expectOp lexer.TokenType, buildExp func(Expression, Expression) Expression) (lexer.Lexer, Expression) {
+	new, operator := l.Next()
+
+	if operator.Type != expectOp {
 		return l, nil
 	}
 
@@ -91,21 +91,21 @@ func parseAddition(l lexer.Lexer, lhs Expression) (lexer.Lexer, *AddExpr) {
 	if rhs == nil {
 		return l, nil
 	}
-	return new, &AddExpr{lhs, rhs}
+	return new, buildExp(lhs, rhs)
+}
+
+// add := "+", expr
+func parseAddition(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
+	return parseInfix(l, lhs, lexer.PLUS, func(lhs, rhs Expression) Expression {
+		return &AddExpr{lhs, rhs}
+	})
 }
 
 // sub := "-", expr
-func parseSubtraction(l lexer.Lexer, lhs Expression) (lexer.Lexer, *SubExpr) {
-	new, minus := l.Next()
-	if minus.Type != lexer.MINUS {
-		return l, nil
-	}
-
-	new, rhs := parseExpression(new)
-	if rhs == nil {
-		return l, nil
-	}
-	return new, &SubExpr{lhs, rhs}
+func parseSubtraction(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
+	return parseInfix(l, lhs, lexer.MINUS, func(lhs, rhs Expression) Expression {
+		return &SubExpr{lhs, rhs}
+	})
 }
 
 func allOf(l lexer.Lexer, types ...lexer.TokenType) (lexer.Lexer, []lexer.Token) {
@@ -140,6 +140,25 @@ func ParseStatement(l lexer.Lexer) (lexer.Lexer, Statement, error) {
 		return l, assign, nil
 	}
 
-	errorMsg := fmt.Sprintln("Expected statement at: ", l.Position)
+	errorMsg := fmt.Sprintln("Expected statement at position: ", l.Position)
 	return l, nil, errors.New(errorMsg)
+}
+
+func ParseProgram(l lexer.Lexer) (*Program, error) {
+	var program Program
+	for {
+
+		// If we reached the end of the input, return
+		if _, tok := l.Next(); tok.Type == lexer.EOF {
+			return &program, nil
+		}
+
+		var stmt Statement
+		var err error
+		l, stmt, err = ParseStatement(l)
+		if err != nil {
+			return nil, err
+		}
+		program.Statements = append(program.Statements, stmt)
+	}
 }

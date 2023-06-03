@@ -4,6 +4,8 @@ import (
 	"monkey/lexer"
 	"reflect"
 	"testing"
+
+	"github.com/r3labs/diff/v3"
 )
 
 func TestParseIdentifier(t *testing.T) {
@@ -107,5 +109,55 @@ func TestParseAssignment(t *testing.T) {
 
 	test("let bar: long = 3 - 4 + foo", &AssignStmt{"bar", "long",
 		&SubExpr{&IntExpr{3}, &AddExpr{&IntExpr{4}, &IdentExpr{"foo"}}}})
+
+}
+
+func TestParseProgram(t *testing.T) {
+	input := `
+		let foo: int = 123
+		let bar: int = foo - 4
+	`
+	lexer := lexer.New(&input)
+	program, err := ParseProgram(lexer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(program.Statements) != 2 {
+		t.Fatal("Expected two statements")
+	}
+
+	difference, err := diff.Diff(
+		&AssignStmt{
+			Lhs:  "foo",
+			Tipe: "int",
+			Rhs:  &IntExpr{Value: 123},
+		},
+		program.Statements[0],
+	)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(difference) != 0 {
+		t.Errorf("Failed to parse first statement: %+v", difference)
+	}
+
+	difference, err = diff.Diff(
+		&AssignStmt{
+			Lhs:  "bar",
+			Tipe: "int",
+			Rhs: &SubExpr{
+				Lhs: &IdentExpr{Name: "foo"},
+				Rhs: &IntExpr{4},
+			},
+		},
+		program.Statements[1],
+		diff.AllowTypeMismatch(false),
+	)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(difference) != 0 {
+		t.Errorf("Failed to parse second statement: %+v", difference)
+	}
 
 }
