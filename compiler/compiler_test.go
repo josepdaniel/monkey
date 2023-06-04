@@ -1,25 +1,28 @@
 package compiler
 
 import (
+	"fmt"
+	"monkey/lexer"
 	"monkey/parser"
 	"testing"
 )
 
-func TestCompile(t *testing.T) {
-	program := parser.Program{
-		Statements: []parser.Statement{
-			&parser.AssignStmt{
-				Lhs:  "foo",
-				Tipe: "int",
-				Rhs:  &parser.IntExpr{Value: 3},
-			},
-		},
+func parseHelper(t *testing.T, s string) parser.Program {
+	lexer := lexer.New(&s)
+	program, error := parser.ParseProgram(lexer)
+	if error != nil {
+		t.Fatal("Could not parse program: ", error)
 	}
+	return *program
+}
 
-	var compiled, err = compile(program)
+func TestCompile(t *testing.T) {
+	program := parseHelper(t, "let x: int = 3")
+
+	var compiled, err = Compile(program)
 	if err != nil {
 		t.Fatalf("Failed to compile: %s", err.Error())
 	}
-	println(*compiled)
+	fmt.Println(Render(compiled))
 
 }
