@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"monkey/compiler"
 	"monkey/lexer"
 	"monkey/parser"
@@ -22,12 +23,12 @@ func main() {
 
 	program, err := parser.ParseProgram(lexer)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	compiled, err := compiler.Compile(*program)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	output := compiler.Render(compiled)

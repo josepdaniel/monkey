@@ -67,6 +67,22 @@ func MOV(destination string, source string) Instruction {
 	}
 }
 
+func ADD(destination string, source string) Instruction {
+	return Instruction{
+		Opcode:   "add",
+		Args:     []string{destination, source},
+		IsIndent: true,
+	}
+}
+
+func SUB(destination string, source string) Instruction {
+	return Instruction{
+		Opcode:   "sub",
+		Args:     []string{destination, source},
+		IsIndent: true,
+	}
+}
+
 func SYSCALL() Instruction {
 	return Instruction{
 		Opcode:   "syscall",

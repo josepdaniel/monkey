@@ -17,7 +17,7 @@ func parseHelper(t *testing.T, s string) parser.Program {
 }
 
 func TestCompile(t *testing.T) {
-	program := parseHelper(t, "let x: int = 3")
+	program := parseHelper(t, "let x: int = 3 let y: int = x")
 
 	var compiled, err = Compile(program)
 	if err != nil {

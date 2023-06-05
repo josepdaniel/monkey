@@ -140,7 +140,7 @@ func ParseStatement(l lexer.Lexer) (lexer.Lexer, Statement, error) {
 		return l, assign, nil
 	}
 
-	errorMsg := fmt.Sprintln("Expected statement at position: ", l.Position)
+	errorMsg := fmt.Sprintln("[parse err] unexpected statement type")
 	return l, nil, errors.New(errorMsg)
 }
 

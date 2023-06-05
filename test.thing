@@ -1,2 +1,3 @@
-let x: int = 2
-let z: int = 42
+let x: int = 8
+let z: int = 800
+let y: int = z - 5
