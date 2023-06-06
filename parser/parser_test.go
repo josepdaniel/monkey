@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"monkey/lexer"
 	"reflect"
 	"testing"
@@ -108,8 +109,10 @@ func TestParseAssignment(t *testing.T) {
 	test("let bar: long = -1928", &AssignStmt{"bar", "long", &IntExpr{-1928}})
 
 	test("let bar: long = 3 - 4 + foo", &AssignStmt{"bar", "long",
-		&SubExpr{&IntExpr{3}, &AddExpr{&IntExpr{4}, &IdentExpr{"foo"}}}})
-
+		&AddExpr{
+			&SubExpr{&IntExpr{3}, &IntExpr{4}},
+			&IdentExpr{"foo"},
+		}})
 }
 
 func TestParseProgram(t *testing.T) {
@@ -160,4 +163,28 @@ func TestParseProgram(t *testing.T) {
 		t.Errorf("Failed to parse second statement: %+v", difference)
 	}
 
+}
+
+func TestParseBinaryExprAssociaticity(t *testing.T) {
+	input := "1 + 2 - 3"
+	lexer := lexer.New(&input)
+	_, node := parseExpression(lexer)
+	expected := &SubExpr{
+		Lhs: &AddExpr{
+			Lhs: &IntExpr{1},
+			Rhs: &IntExpr{2},
+		},
+		Rhs: &IntExpr{3},
+	}
+
+	difference, err := diff.Diff(expected, node)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(difference) != 0 {
+		nodeRepr, _ := json.MarshalIndent(node, "", "  ")
+		expectedRepr, _ := json.MarshalIndent(expected, "", "  ")
+		t.Errorf("Failed to parse expression. Got %s, expected %s", nodeRepr, expectedRepr)
+
+	}
 }

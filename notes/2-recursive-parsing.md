@@ -51,3 +51,78 @@ END := '+' EXPRESSION | '-' EXPRESSION | NOTHING
 - An expression is now made up of a 'start' and an 'end'. The start has our simple non-recursive (terminal) parsers
 - The end has our recursive (non-terminal) parsers (now also including subtraction). The end can also be 'Nothing'.
 - The goal is to always have the recursive parsers match some token first (`+` or `-` in this case) before doing any recursion. That way a base case will always be hit. 
+
+
+## Associativity
+Our new grammar causes an issue with **associativity**. We want our expressions to evaluate from left to right (we are going to ignore operator precedence).
+
+```
+3 + 4 - 5
+
+# Left associative (what we want)
+(3 + 4) - 5  ==>  2
+
+# Right associative (what our grammar gives us)
+3 + (4 - 5)  ==>  4
+```
+
+
+We can further modify our grammar to maintain left-associativity:
+
+```
+EXPRESSION := START {END}
+START := IDENT | INT
+END := '+' START | '-' START
+```
+
+The `{curly braces}` indicate 0-or-more semantics. Using this grammar, our parser will produce this tree for the statement `a + b - c`:
+
+```
+( a + b ) - c 
+```
+
+which is what we want! Our parser can have the following structure:
+
+```go
+// expression := start {end}
+func parseExpression(input string) (Ast, string){
+    ast, rest = parseStart(input)
+    ast, rest = parseEnd(rest, ast)
+    retrurn ast, eRest
+}
+
+// start := ident | int
+func parseStart(input string)  (Ast, string) {
+    ast, rest = parseIdent(input) orElse parseInt(input)
+    return ast, rest
+}
+
+// {end} := {'+' start | '-' start}
+func parseEnd(input string, start ast) {
+    if input.startswith("+") {
+        ast, rest = ast.Add(start, parseStart(input[1:]))
+        return parseEnd(rest, ast)
+    }
+    ...
+    // recursive base case
+    return input, start
+}
+```
+
+
+## Parentheses
+
+We will make operator precedence explicit by requiring parentheses around expressions that should be evaluated together. An expression can now be surrounded by braces. The 'enclosed expression' will live in the 'start' grammar. 
+
+```
+EXPRESSION := START {END}
+START := ENCLOSED_EXPR | IDENT | INT
+ENCLOSED_EXPR := '(' EXPRESSION ')'
+END := '+' START | '-' START
+```
+
+
+## Operator precedence
+
+https://www.engr.mun.ca/~theo/Misc/exp_parsing.htm#climbing
+

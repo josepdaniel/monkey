@@ -35,49 +35,74 @@ func parseInt(l lexer.Lexer) (lexer.Lexer, *IntExpr) {
 // expr := start, end
 func parseExpression(l lexer.Lexer) (lexer.Lexer, Expression) {
 
-	l, start := parseExpressionStart(l)
-	if start == nil {
+	new, tree := parseExpressionStart(l)
+	if tree == nil {
 		return l, nil
 	}
 
-	l, end := parseExpressionEnd(l, start)
-	if end != nil {
-		return l, end
+	new, tree = parseExpressionEnd(new, tree)
+
+	return new, tree
+}
+
+// A start is a simple, non-recursive expression
+// start := enclosedExpression | ident | int | Nothing
+func parseExpressionStart(l lexer.Lexer) (lexer.Lexer, Expression) {
+
+	new, tree := parseEnclosedExpression(l)
+	if tree != nil {
+		return new, tree
+	}
+
+	new, ident := parseIdentifier(l)
+	if ident != nil {
+		return new, ident
+	}
+
+	new, integer := parseInt(l)
+	if integer != nil {
+		return new, integer
+	}
+
+	return l, nil
+}
+
+// An end is zero or more recursive expressions
+// end := {add | sub}
+func parseExpressionEnd(l lexer.Lexer, start Expression) (lexer.Lexer, Expression) {
+	l, add := parseAddition(l, start)
+	if add != nil {
+		return parseExpressionEnd(l, add)
+	}
+
+	l, sub := parseSubtraction(l, start)
+	if sub != nil {
+		return parseExpressionEnd(l, sub)
 	}
 
 	return l, start
 }
 
-// A start is a simple, non-recursive expression
-// start := ident | int | Nothing
-func parseExpressionStart(l lexer.Lexer) (lexer.Lexer, Expression) {
-	l, ident := parseIdentifier(l)
-	if ident != nil {
-		return l, ident
+// parseEnclosedExpression := '(' EXPRESSION ')'
+func parseEnclosedExpression(l lexer.Lexer) (lexer.Lexer, Expression) {
+	new, openParens := l.Next()
+
+	if openParens.Type != lexer.LPAREN {
+		return l, nil
 	}
 
-	l, integer := parseInt(l)
-	if integer != nil {
-		return l, integer
+	new, expression := parseExpression(new)
+	if expression == nil {
+		return l, nil
 	}
 
-	return l, nil
-}
-
-// An end is an expression that is recursive.
-// end := add | sub | Nothing
-func parseExpressionEnd(l lexer.Lexer, start Expression) (lexer.Lexer, Expression) {
-	l, add := parseAddition(l, start)
-	if add != nil {
-		return l, add
+	new, closeParens := new.Next()
+	if closeParens.Type != lexer.RPAREN {
+		return l, nil
 	}
 
-	l, sub := parseSubtraction(l, start)
-	if sub != nil {
-		return l, sub
-	}
+	return new, expression
 
-	return l, nil
 }
 
 func parseInfix(l lexer.Lexer, lhs Expression, expectOp lexer.TokenType, buildExp func(Expression, Expression) Expression) (lexer.Lexer, Expression) {
@@ -87,21 +112,21 @@ func parseInfix(l lexer.Lexer, lhs Expression, expectOp lexer.TokenType, buildEx
 		return l, nil
 	}
 
-	new, rhs := parseExpression(new)
+	new, rhs := parseExpressionStart(new)
 	if rhs == nil {
 		return l, nil
 	}
 	return new, buildExp(lhs, rhs)
 }
 
-// add := "+", expr
+// add := "+", start
 func parseAddition(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
 	return parseInfix(l, lhs, lexer.PLUS, func(lhs, rhs Expression) Expression {
 		return &AddExpr{lhs, rhs}
 	})
 }
 
-// sub := "-", expr
+// sub := "-", start
 func parseSubtraction(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
 	return parseInfix(l, lhs, lexer.MINUS, func(lhs, rhs Expression) Expression {
 		return &SubExpr{lhs, rhs}
