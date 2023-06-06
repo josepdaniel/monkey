@@ -110,12 +110,14 @@ func compileAddExpression(expression parser.AddExpr, env *Env) ([]Instruction, e
 		return []Instruction{}, err
 	}
 	output := append(left, PUSH("rax"))
-
-	// Compile the right hand side
 	// Note - the number of 'locals' in the environment will need to be bumped up by 1
 	// because we pushed a value onto the stack in the LHS, without binding it to a local.
-	// "_" is not an allowed identifier, so we can be sure it won't exist in the environment.
-	tmpEnv := env.addLocal("_")
+	// env.addNever is a helper method that adds a variable to the environment which will never
+	// match variables bound by the program author.
+	tmpEnv := env.addNever()
+
+	// Compile the right hand side
+
 	right, err := compileExpression(expression.Rhs, tmpEnv)
 	if err != nil {
 		return []Instruction{}, err
@@ -138,16 +140,14 @@ func compileSubExpression(expression parser.SubExpr, env *Env) ([]Instruction, e
 		return []Instruction{}, err
 	}
 	output := append(left, PUSH("rax"))
+	tmpEnv := env.addNever()
 
-	tmpEnv := env.addLocal("_")
 	right, err := compileExpression(expression.Lhs, tmpEnv)
 	if err != nil {
 		return []Instruction{}, err
 	}
 
 	output = append(output, right...)
-	// The result of the RHS expression will be in RAX. Add it to the LHS expression.
-	// Also pop the top element of the stack.
 	output = append(output, []Instruction{
 		SUB("rax", "[rsp]"),
 		ADD("rsp", "8"),
