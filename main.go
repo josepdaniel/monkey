@@ -21,14 +21,16 @@ func main() {
 	input := string(bytes)
 	lexer := lexer.New(&input)
 
-	program, err := parser.ParseProgram(lexer)
-	if err != nil {
-		log.Fatal(err)
+	program, parseErr := parser.ParseProgram(lexer)
+	if parseErr != nil {
+		lexer.Position = parseErr.Position
+		log.Fatal(parseErr.ToError(lexer.CurrentLine()))
 	}
 
-	compiled, err := compiler.Compile(*program)
-	if err != nil {
-		log.Fatal(err)
+	compiled, compileErr := compiler.Compile(*program)
+	if compileErr != nil {
+		lexer.Position = compileErr.Position
+		log.Fatal(compileErr.ToError(lexer.CurrentLine()))
 	}
 
 	output := compiler.Render(compiled)

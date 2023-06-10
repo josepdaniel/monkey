@@ -37,7 +37,7 @@ func (env *Env) addBinding(s string, tipe string) (*Env, error) {
 
 	t_var, ok := env.tipes[tipe]
 	if !ok {
-		err := fmt.Sprint("[type err]: unknown type ", tipe)
+		err := fmt.Sprint("unknown type ", tipe)
 		return env, errors.New(err)
 	}
 

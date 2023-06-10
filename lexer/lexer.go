@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"strconv"
+	"strings"
 )
 
 type Lexer struct {
@@ -24,6 +25,23 @@ func New(input *string) Lexer {
 func (lexer Lexer) inNextPosition() Lexer {
 	nextPosition := minInt(len(*lexer.Input), lexer.Position+1)
 	return Lexer{Input: lexer.Input, Position: nextPosition}
+}
+
+func (lexer Lexer) CurrentLine() string {
+	var start, end int = lexer.Position, lexer.Position + 1
+	for {
+		if start == 0 || (*lexer.Input)[start-1] == '\n' || (*lexer.Input)[start] == '\n' {
+			break
+		}
+		start--
+	}
+	for {
+		if end == len(*lexer.Input) || (*lexer.Input)[end] == '\n' {
+			break
+		}
+		end++
+	}
+	return strings.TrimSpace((*lexer.Input)[start:end])
 }
 
 // Return the current character

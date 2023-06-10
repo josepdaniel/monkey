@@ -21,7 +21,7 @@ func TestCompile(t *testing.T) {
 
 	var compiled, err = Compile(program)
 	if err != nil {
-		t.Fatalf("Failed to compile: %s", err.Error())
+		t.Fatalf("Failed to compile: %s", err.ToError("foo"))
 	}
 	fmt.Println(Render(compiled))
 

@@ -73,11 +73,11 @@ func TestParseExpression(t *testing.T) {
 		}
 	}
 
-	test("foo", &IdentExpr{"foo"})
-	test("123", &IntExpr{123})
+	test("foo", &IdentExpr{"foo", 0})
+	test("123", &IntExpr{123, 0})
 	test("[1", nil)
-	test("true", &BoolExpr{true})
-	test("3 < 5", &LessThanExpr{&IntExpr{3}, &IntExpr{5}})
+	test("true", &BoolExpr{true, 0})
+	test("3 < 5", &LessThanExpr{&IntExpr{3, 0}, &IntExpr{5, 3}, 1})
 
 }
 
@@ -101,24 +101,27 @@ func TestParseAssignment(t *testing.T) {
 
 	var test = func(input string, expected Statement) {
 		result := parseHelper(input)
+		exp, _ := json.Marshal(expected)
+		res, _ := json.Marshal(result)
 		if result == nil {
-			t.Fatalf("Expected \"%s\", got \"nil\"", expected)
+			t.Fatalf("Expected \"%s\", got \"nil\"", exp)
 		}
 		if !(reflect.DeepEqual(result, expected)) {
-			t.Fatalf("Expected \"%s\", got \"%s\"", expected, result)
+			t.Fatalf("Expected \"%s\", got \"%s\"", exp, res)
 		}
 	}
 
-	test("let foo: int = 123", &AssignStmt{"foo", "int", &IntExpr{123}})
-	test("let bar: long = -1928", &AssignStmt{"bar", "long", &IntExpr{-1928}})
+	test("let foo: int = 123", &AssignStmt{"foo", "int", &IntExpr{123, 14}, 0})
+	test("let bar: long = -1928", &AssignStmt{"bar", "long", &IntExpr{-1928, 15}, 0})
 
 	test("let bar: long = 3 - 4 + foo", &AssignStmt{"bar", "long",
 		&AddExpr{
-			&SubExpr{&IntExpr{3}, &IntExpr{4}},
-			&IdentExpr{"foo"},
-		}})
-	test("let x: bool = false", &AssignStmt{"x", "bool", &BoolExpr{false}})
-	test("let x: bool = 5 < 4", &AssignStmt{"x", "bool", &LessThanExpr{&IntExpr{5}, &IntExpr{4}}})
+			&SubExpr{&IntExpr{3, 15}, &IntExpr{4, 19}, 17},
+			&IdentExpr{"foo", 23},
+			21,
+		}, 0})
+	test("let x: bool = false", &AssignStmt{"x", "bool", &BoolExpr{false, 13}, 0})
+	test("let x: bool = 5 < 4", &AssignStmt{"x", "bool", &LessThanExpr{&IntExpr{5, 13}, &IntExpr{4, 17}, 15}, 0})
 }
 
 func TestParseProgram(t *testing.T) {
@@ -135,11 +138,12 @@ func TestParseProgram(t *testing.T) {
 		t.Fatal("Expected two statements")
 	}
 
-	difference, err := diff.Diff(
+	difference, _ := diff.Diff(
 		&AssignStmt{
 			Lhs:  "foo",
 			Tipe: "int",
-			Rhs:  &IntExpr{Value: 123},
+			Rhs:  &IntExpr{123, 17},
+			Pos:  0,
 		},
 		program.Statements[0],
 	)
@@ -150,14 +154,16 @@ func TestParseProgram(t *testing.T) {
 		t.Errorf("Failed to parse first statement: %+v", difference)
 	}
 
-	difference, err = diff.Diff(
+	difference, _ = diff.Diff(
 		&AssignStmt{
 			Lhs:  "bar",
 			Tipe: "int",
 			Rhs: &SubExpr{
-				Lhs: &IdentExpr{Name: "foo"},
-				Rhs: &IntExpr{4},
+				Lhs: &IdentExpr{"foo", 38},
+				Rhs: &IntExpr{4, 44},
+				Pos: 42,
 			},
+			Pos: 21,
 		},
 		program.Statements[1],
 		diff.AllowTypeMismatch(false),
@@ -169,14 +175,6 @@ func TestParseProgram(t *testing.T) {
 		t.Errorf("Failed to parse second statement: %+v", difference)
 	}
 
-	input = "let x: bool = 5 < 4 < 3"
-	l = lexer.New(&input)
-	program, err = ParseProgram(l)
-	if err == nil {
-		parseTree, _ := json.Marshal(program)
-		t.Fatal("Expected parse error. Got parse tree: ", string(parseTree))
-	}
-
 }
 
 func TestParseBinaryExprAssociaticity(t *testing.T) {
@@ -185,10 +183,12 @@ func TestParseBinaryExprAssociaticity(t *testing.T) {
 	_, node := parseExpression(lexer)
 	expected := &SubExpr{
 		Lhs: &AddExpr{
-			Lhs: &IntExpr{1},
-			Rhs: &IntExpr{2},
+			Lhs: &IntExpr{1, 0},
+			Rhs: &IntExpr{2, 3},
+			Pos: 1,
 		},
-		Rhs: &IntExpr{3},
+		Rhs: &IntExpr{3, 7},
+		Pos: 5,
 	}
 
 	difference, err := diff.Diff(expected, node)

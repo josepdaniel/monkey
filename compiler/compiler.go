@@ -6,7 +6,16 @@ import (
 	"monkey/parser"
 )
 
-func Compile(program parser.Program) ([]Instruction, error) {
+type CompilerError struct {
+	Error    error
+	Position int
+}
+
+func (e *CompilerError) ToError(source string) error {
+	return errors.New(fmt.Sprint("[compiler err]: ", e.Error, "\nCulprit:\n>>> ", source))
+}
+
+func Compile(program parser.Program) ([]Instruction, *CompilerError) {
 
 	var prelude = []Instruction{
 		SECTION(".text"),
@@ -31,7 +40,7 @@ func Compile(program parser.Program) ([]Instruction, error) {
 
 }
 
-func compileStatements(statements []parser.Statement) ([]Instruction, error) {
+func compileStatements(statements []parser.Statement) ([]Instruction, *CompilerError) {
 
 	var env = NewEnv()
 	var output []Instruction
@@ -42,7 +51,7 @@ func compileStatements(statements []parser.Statement) ([]Instruction, error) {
 
 		res, env, err = compileStatement(statement, env)
 		if err != nil {
-			return []Instruction{}, err
+			return []Instruction{}, &CompilerError{err, statement.Position()}
 		}
 		output = append(output, res...)
 	}
@@ -54,7 +63,7 @@ func compileStatement(statement parser.Statement, env *Env) ([]Instruction, *Env
 	case *parser.AssignStmt:
 		return compileAssignStmt(statement, env)
 	}
-	return []Instruction{}, env, errors.New("[compiler err]: unexpected statement type")
+	return []Instruction{}, env, errors.New("unexpected statement type")
 }
 
 func compileAssignStmt(statement *parser.AssignStmt, env *Env) ([]Instruction, *Env, error) {
@@ -65,12 +74,12 @@ func compileAssignStmt(statement *parser.AssignStmt, env *Env) ([]Instruction, *
 	assignmentTipe, ok := env.lookupTipe(statement.Tipe)
 
 	if !ok {
-		err := fmt.Sprint("[type err]: type not found ", statement.Tipe)
+		err := fmt.Sprint("type not found: ", statement.Tipe)
 		return []Instruction{}, env, errors.New(err)
 	}
 
 	if exprTipe != assignmentTipe {
-		err := fmt.Sprint("[type err]: cannot cannot assign type: ", exprTipe.Name, " to ", statement.Tipe)
+		err := fmt.Sprint("cannot cannot assign type: ", exprTipe.Name, " to ", statement.Tipe)
 		return []Instruction{}, env, errors.New(err)
 	}
 	output := append(compiledExpression, PUSH("rax"))
@@ -99,7 +108,7 @@ func compileExpression(expression parser.Expression, env *Env) ([]Instruction, T
 		return compileLessThanExpression(*expression, env)
 	}
 
-	return []Instruction{}, T_NEVER(0), errors.New("[compiler err]: unexpected expression type")
+	return []Instruction{}, T_NEVER(0), errors.New("unexpected expression type")
 }
 
 func compileIntegerExpression(expression parser.IntExpr) ([]Instruction, Tipe, error) {
@@ -132,7 +141,7 @@ func compileLessThanExpression(expression parser.LessThanExpr, env *Env) ([]Inst
 	}
 
 	if (leftTipe != T_INT) || (rightTipe != T_INT) {
-		err := fmt.Sprint("[type err]: cannot cannot compare types: ", leftTipe.Name, " and ", rightTipe.Name)
+		err := fmt.Sprint("cannot cannot compare types: ", leftTipe.Name, " and ", rightTipe.Name)
 		return []Instruction{}, T_NEVER(0), errors.New(err)
 	}
 
@@ -178,7 +187,7 @@ func compileAddExpression(expression parser.AddExpr, env *Env) ([]Instruction, T
 	}
 
 	if (leftTipe != T_INT) || (rightTipe != T_INT) {
-		err := fmt.Sprint("[type err]: cannot cannot add types: ", leftTipe.Name, " and ", rightTipe.Name)
+		err := fmt.Sprint("cannot cannot add types: ", leftTipe.Name, " and ", rightTipe.Name)
 		return []Instruction{}, T_NEVER(0), errors.New(err)
 	}
 
@@ -205,7 +214,7 @@ func compileSubExpression(expression parser.SubExpr, env *Env) ([]Instruction, T
 	}
 
 	if (leftTipe != T_INT) || (rightTipe != T_INT) {
-		err := fmt.Sprint("[type err]: cannot cannot subtract types: ", leftTipe.Name, " and ", rightTipe.Name)
+		err := fmt.Sprint("cannot cannot subtract types: ", leftTipe.Name, " and ", rightTipe.Name)
 		return []Instruction{}, T_NEVER(0), errors.New(err)
 	}
 

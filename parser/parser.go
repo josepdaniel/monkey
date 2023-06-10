@@ -10,7 +10,7 @@ import (
 func parseIdentifier(l lexer.Lexer) (lexer.Lexer, *IdentExpr) {
 
 	if new, tok := l.Next(); tok.Type == lexer.IDENT {
-		ident := &IdentExpr{tok.Lexeme}
+		ident := &IdentExpr{tok.Lexeme, l.Position}
 		return new, ident
 	} else {
 		return l, nil
@@ -25,7 +25,7 @@ func parseInt(l lexer.Lexer) (lexer.Lexer, *IntExpr) {
 		if err != nil {
 			return l, nil
 		}
-		return new, &IntExpr{value}
+		return new, &IntExpr{value, l.Position}
 	} else {
 		return l, nil
 	}
@@ -35,7 +35,7 @@ func parseBool(l lexer.Lexer) (lexer.Lexer, *BoolExpr) {
 
 	if new, tok := l.Next(); tok.Type == lexer.TRUE || tok.Type == lexer.FALSE {
 		value := tok.Type == lexer.TRUE
-		return new, &BoolExpr{value}
+		return new, &BoolExpr{value, l.Position}
 	} else {
 		return l, nil
 	}
@@ -147,28 +147,28 @@ func parseInfix(l lexer.Lexer, lhs Expression, expectOp lexer.TokenType, buildEx
 // add := "+", start
 func parseAddition(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
 	return parseInfix(l, lhs, lexer.PLUS, func(lhs, rhs Expression) Expression {
-		return &AddExpr{lhs, rhs}
+		return &AddExpr{lhs, rhs, l.Position}
 	})
 }
 
 // sub := "-", start
 func parseSubtraction(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
 	return parseInfix(l, lhs, lexer.MINUS, func(lhs, rhs Expression) Expression {
-		return &SubExpr{lhs, rhs}
+		return &SubExpr{lhs, rhs, l.Position}
 	})
 }
 
 // lt := "<", start
 func parseLessThan(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
 	return parseInfix(l, lhs, lexer.LT, func(lhs, rhs Expression) Expression {
-		return &LessThanExpr{lhs, rhs}
+		return &LessThanExpr{lhs, rhs, l.Position}
 	})
 }
 
 // gt := ">", start
 func parseGreaterThan(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
 	return parseInfix(l, lhs, lexer.GT, func(lhs, rhs Expression) Expression {
-		return &GreaterThanExpr{lhs, rhs}
+		return &GreaterThanExpr{lhs, rhs, l.Position}
 	})
 }
 
@@ -189,7 +189,7 @@ func parseAssignment(l lexer.Lexer) (lexer.Lexer, Statement) {
 
 	if new, toks := allOf(l, lexer.LET, lexer.IDENT, lexer.ASSIGN_T, lexer.IDENT, lexer.ASSIGN); toks != nil {
 		if new, rhs := parseExpression(new); rhs != nil {
-			return new, &AssignStmt{Lhs: toks[1].Lexeme, Tipe: toks[3].Lexeme, Rhs: rhs}
+			return new, &AssignStmt{Lhs: toks[1].Lexeme, Tipe: toks[3].Lexeme, Rhs: rhs, Pos: l.Position}
 		} else {
 			return l, nil
 		}
@@ -204,11 +204,20 @@ func ParseStatement(l lexer.Lexer) (lexer.Lexer, Statement, error) {
 		return l, assign, nil
 	}
 
-	errorMsg := fmt.Sprintln("[parse err] unexpected statement type")
+	errorMsg := fmt.Sprintln("unexpected statement type")
 	return l, nil, errors.New(errorMsg)
 }
 
-func ParseProgram(l lexer.Lexer) (*Program, error) {
+type ParseError struct {
+	Position int
+	Error    error
+}
+
+func (e ParseError) ToError(source string) error {
+	return errors.New(fmt.Sprint("[parse err]: ", e.Error, "\nCulprit:\n>>> ", source))
+}
+
+func ParseProgram(l lexer.Lexer) (*Program, *ParseError) {
 	var program Program
 	for {
 
@@ -221,7 +230,10 @@ func ParseProgram(l lexer.Lexer) (*Program, error) {
 		var err error
 		l, stmt, err = ParseStatement(l)
 		if err != nil {
-			return nil, err
+			return nil, &ParseError{
+				Position: l.Position,
+				Error:    err,
+			}
 		}
 		program.Statements = append(program.Statements, stmt)
 	}
