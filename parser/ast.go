@@ -38,6 +38,14 @@ type IntExpr struct {
 func (*IntExpr) isExpression() {}
 func (*IntExpr) isNode()       {}
 
+// Boolean ----------------------------
+type BoolExpr struct {
+	Value bool
+}
+
+func (*BoolExpr) isExpression() {}
+func (*BoolExpr) isNode()       {}
+
 // Addition ---------------------------
 
 type AddExpr struct {
@@ -57,6 +65,24 @@ type SubExpr struct {
 
 func (*SubExpr) isExpression() {}
 func (*SubExpr) isNode()       {}
+
+// Less than --------------------------
+type LessThanExpr struct {
+	Lhs Expression
+	Rhs Expression
+}
+
+func (*LessThanExpr) isExpression() {}
+func (*LessThanExpr) isNode()       {}
+
+// Greater than -----------------------
+type GreaterThanExpr struct {
+	Lhs Expression
+	Rhs Expression
+}
+
+func (*GreaterThanExpr) isExpression() {}
+func (*GreaterThanExpr) isNode()       {}
 
 // Assignment -------------------------
 type AssignStmt struct {

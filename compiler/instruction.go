@@ -1,11 +1,21 @@
 package compiler
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type Instruction struct {
 	Opcode   string
 	Args     []string
 	IsIndent bool
+}
+
+var labelCounter = 0
+
+func genLabel() string {
+	labelCounter++
+	return fmt.Sprintf("label_%d", labelCounter)
 }
 
 func Render(instructions []Instruction) string {
@@ -79,6 +89,30 @@ func SUB(destination string, source string) Instruction {
 	return Instruction{
 		Opcode:   "sub",
 		Args:     []string{destination, source},
+		IsIndent: true,
+	}
+}
+
+func CMP(destination string, source string) Instruction {
+	return Instruction{
+		Opcode:   "cmp",
+		Args:     []string{destination, source},
+		IsIndent: true,
+	}
+}
+
+func JL(label string) Instruction {
+	return Instruction{
+		Opcode:   "jl",
+		Args:     []string{label},
+		IsIndent: true,
+	}
+}
+
+func JMP(label string) Instruction {
+	return Instruction{
+		Opcode:   "jmp",
+		Args:     []string{label},
 		IsIndent: true,
 	}
 }

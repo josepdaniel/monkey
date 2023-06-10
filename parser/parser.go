@@ -31,6 +31,16 @@ func parseInt(l lexer.Lexer) (lexer.Lexer, *IntExpr) {
 	}
 }
 
+func parseBool(l lexer.Lexer) (lexer.Lexer, *BoolExpr) {
+
+	if new, tok := l.Next(); tok.Type == lexer.TRUE || tok.Type == lexer.FALSE {
+		value := tok.Type == lexer.TRUE
+		return new, &BoolExpr{value}
+	} else {
+		return l, nil
+	}
+}
+
 // An expression is a start followed by an end
 // expr := start, end
 func parseExpression(l lexer.Lexer) (lexer.Lexer, Expression) {
@@ -46,7 +56,7 @@ func parseExpression(l lexer.Lexer) (lexer.Lexer, Expression) {
 }
 
 // A start is a simple, non-recursive expression
-// start := enclosedExpression | ident | int | Nothing
+// start := enclosedExpression | ident | int | bool | Nothing
 func parseExpressionStart(l lexer.Lexer) (lexer.Lexer, Expression) {
 
 	new, tree := parseEnclosedExpression(l)
@@ -64,20 +74,35 @@ func parseExpressionStart(l lexer.Lexer) (lexer.Lexer, Expression) {
 		return new, integer
 	}
 
+	new, bool := parseBool(l)
+	if bool != nil {
+		return new, bool
+	}
+
 	return l, nil
 }
 
 // An end is zero or more recursive expressions
-// end := {add | sub}
+// end := {add | sub | lt | gt}
 func parseExpressionEnd(l lexer.Lexer, start Expression) (lexer.Lexer, Expression) {
-	l, add := parseAddition(l, start)
+	new, add := parseAddition(l, start)
 	if add != nil {
-		return parseExpressionEnd(l, add)
+		return parseExpressionEnd(new, add)
 	}
 
-	l, sub := parseSubtraction(l, start)
+	new, sub := parseSubtraction(l, start)
 	if sub != nil {
-		return parseExpressionEnd(l, sub)
+		return parseExpressionEnd(new, sub)
+	}
+
+	new, lt := parseLessThan(l, start)
+	if lt != nil {
+		return parseExpressionEnd(new, lt)
+	}
+
+	new, gt := parseGreaterThan(l, start)
+	if gt != nil {
+		return parseExpressionEnd(new, gt)
 	}
 
 	return l, start
@@ -130,6 +155,20 @@ func parseAddition(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
 func parseSubtraction(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
 	return parseInfix(l, lhs, lexer.MINUS, func(lhs, rhs Expression) Expression {
 		return &SubExpr{lhs, rhs}
+	})
+}
+
+// lt := "<", start
+func parseLessThan(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
+	return parseInfix(l, lhs, lexer.LT, func(lhs, rhs Expression) Expression {
+		return &LessThanExpr{lhs, rhs}
+	})
+}
+
+// gt := ">", start
+func parseGreaterThan(l lexer.Lexer, lhs Expression) (lexer.Lexer, Expression) {
+	return parseInfix(l, lhs, lexer.GT, func(lhs, rhs Expression) Expression {
+		return &GreaterThanExpr{lhs, rhs}
 	})
 }
 

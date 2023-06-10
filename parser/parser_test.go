@@ -67,13 +67,17 @@ func TestParseExpression(t *testing.T) {
 	var test = func(input string, expected Expression) {
 		result := parseHelper(input)
 		if !(reflect.DeepEqual(result, expected)) {
-			t.Fatalf("Expected \"%s\", got \"%s\"", expected, result)
+			exp, _ := json.Marshal(expected)
+			res, _ := json.Marshal(result)
+			t.Fatalf("Expected \"%s\", got \"%s\"", exp, res)
 		}
 	}
 
 	test("foo", &IdentExpr{"foo"})
 	test("123", &IntExpr{123})
 	test("[1", nil)
+	test("true", &BoolExpr{true})
+	test("3 < 5", &LessThanExpr{&IntExpr{3}, &IntExpr{5}})
 
 }
 
@@ -113,6 +117,8 @@ func TestParseAssignment(t *testing.T) {
 			&SubExpr{&IntExpr{3}, &IntExpr{4}},
 			&IdentExpr{"foo"},
 		}})
+	test("let x: bool = false", &AssignStmt{"x", "bool", &BoolExpr{false}})
+	test("let x: bool = 5 < 4", &AssignStmt{"x", "bool", &LessThanExpr{&IntExpr{5}, &IntExpr{4}}})
 }
 
 func TestParseProgram(t *testing.T) {
@@ -120,8 +126,8 @@ func TestParseProgram(t *testing.T) {
 		let foo: int = 123
 		let bar: int = foo - 4
 	`
-	lexer := lexer.New(&input)
-	program, err := ParseProgram(lexer)
+	l := lexer.New(&input)
+	program, err := ParseProgram(l)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,6 +167,14 @@ func TestParseProgram(t *testing.T) {
 	}
 	if len(difference) != 0 {
 		t.Errorf("Failed to parse second statement: %+v", difference)
+	}
+
+	input = "let x: bool = 5 < 4 < 3"
+	l = lexer.New(&input)
+	program, err = ParseProgram(l)
+	if err == nil {
+		parseTree, _ := json.Marshal(program)
+		t.Fatal("Expected parse error. Got parse tree: ", string(parseTree))
 	}
 
 }

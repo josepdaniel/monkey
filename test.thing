@@ -1,3 +1,5 @@
 let x: int = 8
 let y: int = 232
 let z: int = y - ( x + 9 - (3+4) + x )
+let a: bool = y < (x + z)
+

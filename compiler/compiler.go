@@ -33,9 +33,7 @@ func Compile(program parser.Program) ([]Instruction, error) {
 
 func compileStatements(statements []parser.Statement) ([]Instruction, error) {
 
-	var env = &Env{
-		locals: make([]string, 0),
-	}
+	var env = NewEnv()
 	var output []Instruction
 
 	for _, statement := range statements {
@@ -60,17 +58,32 @@ func compileStatement(statement parser.Statement, env *Env) ([]Instruction, *Env
 }
 
 func compileAssignStmt(statement *parser.AssignStmt, env *Env) ([]Instruction, *Env, error) {
-	compiledExpression, err := compileExpression(statement.Rhs, env)
+	compiledExpression, exprTipe, err := compileExpression(statement.Rhs, env)
 	if err != nil {
 		return []Instruction{}, env, err
 	}
+	assignmentTipe, ok := env.lookupTipe(statement.Tipe)
+
+	if !ok {
+		err := fmt.Sprint("[type err]: type not found ", statement.Tipe)
+		return []Instruction{}, env, errors.New(err)
+	}
+
+	if exprTipe != assignmentTipe {
+		err := fmt.Sprint("[type err]: cannot cannot assign type: ", exprTipe.Name, " to ", statement.Tipe)
+		return []Instruction{}, env, errors.New(err)
+	}
 	output := append(compiledExpression, PUSH("rax"))
-	env = env.addLocal(statement.Lhs)
+	env, err = env.addBinding(statement.Lhs, statement.Tipe)
+
+	if err != nil {
+		return []Instruction{}, env, err
+	}
 
 	return output, env, nil
 }
 
-func compileExpression(expression parser.Expression, env *Env) ([]Instruction, error) {
+func compileExpression(expression parser.Expression, env *Env) ([]Instruction, Tipe, error) {
 	switch expression := expression.(type) {
 	case *parser.IntExpr:
 		return compileIntegerExpression(*expression)
@@ -80,71 +93,120 @@ func compileExpression(expression parser.Expression, env *Env) ([]Instruction, e
 		return compileAddExpression(*expression, env)
 	case *parser.SubExpr:
 		return compileSubExpression(*expression, env)
+	case *parser.BoolExpr:
+		return compileBoolExpression(*expression, env)
+	case *parser.LessThanExpr:
+		return compileLessThanExpression(*expression, env)
 	}
 
-	return []Instruction{}, errors.New("[compiler err]: unexpected expression type")
+	return []Instruction{}, T_NEVER(0), errors.New("[compiler err]: unexpected expression type")
 }
 
-func compileIntegerExpression(expression parser.IntExpr) ([]Instruction, error) {
+func compileIntegerExpression(expression parser.IntExpr) ([]Instruction, Tipe, error) {
 	return []Instruction{
 		MOV("rax", fmt.Sprint(expression.Value)),
-	}, nil
+	}, T_INT, nil
 }
 
-func compileIdentExpression(expression parser.IdentExpr, env *Env) ([]Instruction, error) {
-	address, err := env.lexicalAddress(expression.Name)
-	if err != nil {
-		return []Instruction{}, err
+func compileBoolExpression(expression parser.BoolExpr, env *Env) ([]Instruction, Tipe, error) {
+	val := 0
+	if expression.Value {
+		val = 1
 	}
 	return []Instruction{
-		// For now we are assuming all data types are 8 bytes wide
-		// TODO: implement a types table that can be used to look up the size of a type
-		MOV("rax", fmt.Sprintf("[rsp+%d]", address*8)),
-	}, nil
+		MOV("rax", fmt.Sprint(val)),
+	}, T_BOOL, nil
 }
 
-func compileAddExpression(expression parser.AddExpr, env *Env) ([]Instruction, error) {
-	// Compile the left hand side, and push the result onto the stack
-	left, err := compileExpression(expression.Lhs, env)
+func compileLessThanExpression(expression parser.LessThanExpr, env *Env) ([]Instruction, Tipe, error) {
+	left, leftTipe, err := compileExpression(expression.Lhs, env)
 	if err != nil {
-		return []Instruction{}, err
+		return []Instruction{}, T_NEVER(0), err
 	}
 	output := append(left, PUSH("rax"))
-	// Note - the number of 'locals' in the environment will need to be bumped up by 1
-	// because we pushed a value onto the stack in the LHS, without binding it to a local.
-	// env.addNever is a helper method that adds a variable to the environment which will never
-	// match variables bound by the program author.
-	tmpEnv := env.addNever()
+	tmpEnv := env.addNever(leftTipe.Size)
 
-	// Compile the right hand side
-
-	right, err := compileExpression(expression.Rhs, tmpEnv)
+	right, rightTipe, err := compileExpression(expression.Rhs, tmpEnv)
 	if err != nil {
-		return []Instruction{}, err
+		return []Instruction{}, T_NEVER(0), err
+	}
+
+	if (leftTipe != T_INT) || (rightTipe != T_INT) {
+		err := fmt.Sprint("[type err]: cannot cannot compare types: ", leftTipe.Name, " and ", rightTipe.Name)
+		return []Instruction{}, T_NEVER(0), errors.New(err)
 	}
 
 	output = append(output, right...)
-	// The result of the RHS expression will be in RAX. Add it to the LHS expression.
-	// Also pop the top element of the stack.
+
+	ifTrue := genLabel()
+	done := genLabel()
+
+	output = append(output, []Instruction{
+		CMP("[rsp]", "rax"),
+		JL(ifTrue),
+		MOV("rax", "0"),
+		JMP(done),
+		LABEL(ifTrue),
+		MOV("rax", "1"),
+		LABEL(done),
+	}...)
+
+	return output, T_BOOL, nil
+}
+
+func compileIdentExpression(expression parser.IdentExpr, env *Env) ([]Instruction, Tipe, error) {
+	address, tipe, err := env.lexicalAddress(expression.Name)
+	if err != nil {
+		return []Instruction{}, T_NEVER(0), err
+	}
+	return []Instruction{
+		MOV("rax", fmt.Sprintf("[rsp+%d]", address)),
+	}, tipe, nil
+}
+
+func compileAddExpression(expression parser.AddExpr, env *Env) ([]Instruction, Tipe, error) {
+	left, leftTipe, err := compileExpression(expression.Lhs, env)
+	if err != nil {
+		return []Instruction{}, T_NEVER(0), err
+	}
+	output := append(left, PUSH("rax"))
+	tmpEnv := env.addNever(leftTipe.Size)
+
+	right, rightTipe, err := compileExpression(expression.Rhs, tmpEnv)
+	if err != nil {
+		return []Instruction{}, T_NEVER(0), err
+	}
+
+	if (leftTipe != T_INT) || (rightTipe != T_INT) {
+		err := fmt.Sprint("[type err]: cannot cannot add types: ", leftTipe.Name, " and ", rightTipe.Name)
+		return []Instruction{}, T_NEVER(0), errors.New(err)
+	}
+
+	output = append(output, right...)
 	output = append(output, []Instruction{
 		ADD("rax", "[rsp]"),
 		ADD("rsp", "8"),
 	}...)
 
-	return output, nil
+	return output, leftTipe, nil
 }
 
-func compileSubExpression(expression parser.SubExpr, env *Env) ([]Instruction, error) {
-	left, err := compileExpression(expression.Rhs, env)
+func compileSubExpression(expression parser.SubExpr, env *Env) ([]Instruction, Tipe, error) {
+	left, leftTipe, err := compileExpression(expression.Rhs, env)
 	if err != nil {
-		return []Instruction{}, err
+		return []Instruction{}, T_NEVER(0), err
 	}
 	output := append(left, PUSH("rax"))
-	tmpEnv := env.addNever()
+	tmpEnv := env.addNever(leftTipe.Size)
 
-	right, err := compileExpression(expression.Lhs, tmpEnv)
+	right, rightTipe, err := compileExpression(expression.Lhs, tmpEnv)
 	if err != nil {
-		return []Instruction{}, err
+		return []Instruction{}, T_NEVER(0), err
+	}
+
+	if (leftTipe != T_INT) || (rightTipe != T_INT) {
+		err := fmt.Sprint("[type err]: cannot cannot subtract types: ", leftTipe.Name, " and ", rightTipe.Name)
+		return []Instruction{}, T_NEVER(0), errors.New(err)
 	}
 
 	output = append(output, right...)
@@ -153,5 +215,5 @@ func compileSubExpression(expression parser.SubExpr, env *Env) ([]Instruction, e
 		ADD("rsp", "8"),
 	}...)
 
-	return output, nil
+	return output, leftTipe, nil
 }
