@@ -29,7 +29,7 @@ func Compile(program parser.Program) ([]Instruction, *CompilerError) {
 		SYSCALL(),
 	}
 
-	compiledStatements, err := compileStatements(program.Statements)
+	compiledStatements, err := compileProgram(program.Statements)
 	output := append(append(prelude, compiledStatements...), epilogue...)
 
 	if err != nil {
@@ -40,7 +40,7 @@ func Compile(program parser.Program) ([]Instruction, *CompilerError) {
 
 }
 
-func compileStatements(statements []parser.Statement) ([]Instruction, *CompilerError) {
+func compileProgram(statements []parser.Statement) ([]Instruction, *CompilerError) {
 
 	var env = NewEnv()
 	var output []Instruction
@@ -74,12 +74,12 @@ func compileAssignStmt(statement *parser.AssignStmt, env *Env) ([]Instruction, *
 	assignmentTipe, ok := env.lookupTipe(statement.Tipe)
 
 	if !ok {
-		err := fmt.Sprint("type not found: ", statement.Tipe)
+		err := fmt.Sprint("type not found: ", statement.Tipe.Render())
 		return []Instruction{}, env, errors.New(err)
 	}
 
 	if exprTipe != assignmentTipe {
-		err := fmt.Sprint("cannot cannot assign type: ", exprTipe.Name, " to ", statement.Tipe)
+		err := fmt.Sprint("cannot cannot assign type: ", exprTipe.Name, " to ", statement.Tipe.Render())
 		return []Instruction{}, env, errors.New(err)
 	}
 	output := append(compiledExpression, PUSH("rax"))
@@ -105,7 +105,11 @@ func compileExpression(expression parser.Expression, env *Env) ([]Instruction, T
 	case *parser.BoolExpr:
 		return compileBoolExpression(*expression, env)
 	case *parser.LessThanExpr:
-		return compileLessThanExpression(*expression, env)
+		return compileComparisonExpression(expression.Lhs, expression.Rhs, JL, env)
+	case *parser.GreaterThanExpr:
+		return compileComparisonExpression(expression.Lhs, expression.Rhs, JG, env)
+	case *parser.BlockBodyExpr:
+		return compileBlockBodyExpression(*expression, env)
 	}
 
 	return []Instruction{}, T_NEVER(0), errors.New("unexpected expression type")
@@ -127,15 +131,15 @@ func compileBoolExpression(expression parser.BoolExpr, env *Env) ([]Instruction,
 	}, T_BOOL, nil
 }
 
-func compileLessThanExpression(expression parser.LessThanExpr, env *Env) ([]Instruction, Tipe, error) {
-	left, leftTipe, err := compileExpression(expression.Lhs, env)
+func compileComparisonExpression(lhs parser.Expression, rhs parser.Expression, jump func(string) Instruction, env *Env) ([]Instruction, Tipe, error) {
+	left, leftTipe, err := compileExpression(lhs, env)
 	if err != nil {
 		return []Instruction{}, T_NEVER(0), err
 	}
 	output := append(left, PUSH("rax"))
 	tmpEnv := env.addNever(leftTipe.Size)
 
-	right, rightTipe, err := compileExpression(expression.Rhs, tmpEnv)
+	right, rightTipe, err := compileExpression(rhs, tmpEnv)
 	if err != nil {
 		return []Instruction{}, T_NEVER(0), err
 	}
@@ -152,15 +156,37 @@ func compileLessThanExpression(expression parser.LessThanExpr, env *Env) ([]Inst
 
 	output = append(output, []Instruction{
 		CMP("[rsp]", "rax"),
-		JL(ifTrue),
+		jump(ifTrue),
 		MOV("rax", "0"),
 		JMP(done),
 		LABEL(ifTrue),
 		MOV("rax", "1"),
 		LABEL(done),
+		ADD("rsp", "8"),
 	}...)
 
 	return output, T_BOOL, nil
+}
+
+func compileBlockBodyExpression(expression parser.BlockBodyExpr, env *Env) ([]Instruction, Tipe, error) {
+	// the stuff inside the block can't peek out
+	tempEnv := NewEnv()
+	output := []Instruction{}
+
+	for _, statement := range expression.Statements {
+		var instrs []Instruction
+		var err error
+		instrs, tempEnv, err = compileStatement(statement, tempEnv)
+		if err != nil {
+			return []Instruction{}, T_NEVER(0), err
+		}
+		output = append(output, instrs...)
+	}
+
+	// the final expression in the block is the return value
+	final, tipe, err := compileExpression(expression.Final, tempEnv)
+	output = append(output, final...)
+	return output, tipe, err
 }
 
 func compileIdentExpression(expression parser.IdentExpr, env *Env) ([]Instruction, Tipe, error) {

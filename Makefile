@@ -10,7 +10,7 @@ run-invalid:
 	@go run main.go ./things/invalid.thing target/invalid.s
 	@nasm -fmacho64 target/invalid.s -o target/invalid.o
 	@ld -static -e _start -o target/invalid target/invalid.o
-	./target/test
+	./target/invalid
 
 test:
 	@go test ./...

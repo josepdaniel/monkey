@@ -35,6 +35,11 @@ func (lexer Lexer) CurrentLine() string {
 		}
 		start--
 	}
+
+	for (*lexer.Input)[end] == '\n' {
+		end++
+	}
+
 	for {
 		if end == len(*lexer.Input) || (*lexer.Input)[end] == '\n' {
 			break

@@ -1,2 +1,10 @@
 let x: int = 3
+
+
+let z: (int) -> bool = def (x: int) -> bool {
+    let y: int = 3
+    let f: bool = false
+    x
+}
+
 let y: invalid = 2

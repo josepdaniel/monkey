@@ -3,12 +3,8 @@ package compiler
 import (
 	"errors"
 	"fmt"
+	"monkey/parser"
 )
-
-type Tipe struct {
-	Name string
-	Size int
-}
 
 type Binding struct {
 	Name string
@@ -30,12 +26,12 @@ func NewEnv() *Env {
 	}
 }
 
-func (env *Env) addBinding(s string, tipe string) (*Env, error) {
+func (env *Env) addBinding(s string, tipe parser.TypeExpression) (*Env, error) {
 	if s == NEVER {
 		panic(fmt.Sprint(s, " is not a valid name for assignment. If you are seeing this error, something has gone terribly wrong."))
 	}
 
-	t_var, ok := env.tipes[tipe]
+	t_var, ok := env.lookupTipe(tipe)
 	if !ok {
 		err := fmt.Sprint("unknown type ", tipe)
 		return env, errors.New(err)
@@ -48,7 +44,7 @@ func (env *Env) addBinding(s string, tipe string) (*Env, error) {
 }
 
 /*
-Used when an element has been pushed onto the stack without calling 'declare',
+Used when an element has been pushed onto the stack without calling 'addBinding',
 and lexical address resolution still needs to work. The created symbol is gauranteed
 to never match a local bound by the program author.
 */
@@ -69,28 +65,30 @@ func (env *Env) lexicalAddress(s string) (int, Tipe, error) {
 	return 0, T_NEVER(0), errors.New(fmt.Sprint("unbound variable ", s))
 }
 
-func (env *Env) lookupTipe(tipe string) (Tipe, bool) {
-	res, ok := env.tipes[tipe]
-	return res, ok
+func (env *Env) lookupTipe(tipe parser.TypeExpression) (Tipe, bool) {
+	switch tipe := tipe.(type) {
+	case *parser.LiteralType:
+		name := tipe.Name
+		res, ok := env.tipes[name]
+		return res, ok
+	case *parser.ArrowType:
+		// If it is a function, we need to check all parameters
+		params := tipe.Parameters
+		for _, param := range params {
+			if _, ok := env.lookupTipe(param); !ok {
+				return T_NEVER(0), false
+			}
+		}
+		// We also need to check the return type
+		if _, ok := env.lookupTipe(tipe.Returns); !ok {
+			return T_NEVER(0), false
+		}
+		return T_ARROW, true
+	default:
+		return T_NEVER(0), false
+	}
 }
 
 const (
 	NEVER = "-"
 )
-
-var T_INT = Tipe{
-	Name: "int",
-	Size: 8,
-}
-
-func T_NEVER(size int) Tipe {
-	return Tipe{
-		Name: "never",
-		Size: size,
-	}
-}
-
-var T_BOOL = Tipe{
-	Name: "bool",
-	Size: 8,
-}

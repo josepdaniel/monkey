@@ -22,6 +22,7 @@ var DoubleCharOperators = map[string]TokenType{
 	"!=": NEQ,
 	"&&": AND,
 	"||": OR,
+	"->": ARROW,
 }
 
 var Operators = map[string]TokenType{
@@ -55,6 +56,7 @@ const (
 	NEQ       TokenType = "!="
 	AND       TokenType = "&&"
 	OR        TokenType = "||"
+	ARROW     TokenType = "->"
 	ASSIGN    TokenType = "="
 	PLUS      TokenType = "+"
 	COMMA     TokenType = ","

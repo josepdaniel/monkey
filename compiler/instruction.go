@@ -117,6 +117,14 @@ func JMP(label string) Instruction {
 	}
 }
 
+func JG(label string) Instruction {
+	return Instruction{
+		Opcode:   "jg",
+		Args:     []string{label},
+		IsIndent: true,
+	}
+}
+
 func SYSCALL() Instruction {
 	return Instruction{
 		Opcode:   "syscall",

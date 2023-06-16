@@ -73,11 +73,11 @@ func TestParseExpression(t *testing.T) {
 		}
 	}
 
-	test("foo", &IdentExpr{"foo", 0})
-	test("123", &IntExpr{123, 0})
+	test("foo", &IdentExpr{"foo"})
+	test("123", &IntExpr{123})
 	test("[1", nil)
-	test("true", &BoolExpr{true, 0})
-	test("3 < 5", &LessThanExpr{&IntExpr{3, 0}, &IntExpr{5, 3}, 1})
+	test("true", &BoolExpr{true})
+	test("3 < 5", &LessThanExpr{&IntExpr{3}, &IntExpr{5}})
 
 }
 
@@ -111,17 +111,49 @@ func TestParseAssignment(t *testing.T) {
 		}
 	}
 
-	test("let foo: int = 123", &AssignStmt{"foo", "int", &IntExpr{123, 14}, 0})
-	test("let bar: long = -1928", &AssignStmt{"bar", "long", &IntExpr{-1928, 15}, 0})
+	test("let foo: int = 123", &AssignStmt{"foo", &LiteralType{"int"}, &IntExpr{123}, 0})
+	test("let bar: long = -1928", &AssignStmt{"bar", &LiteralType{"long"}, &IntExpr{-1928}, 0})
 
-	test("let bar: long = 3 - 4 + foo", &AssignStmt{"bar", "long",
+	test("let bar: long = 3 - 4 + foo", &AssignStmt{
+		"bar",
+		&LiteralType{"long"},
 		&AddExpr{
-			&SubExpr{&IntExpr{3, 15}, &IntExpr{4, 19}, 17},
-			&IdentExpr{"foo", 23},
-			21,
-		}, 0})
-	test("let x: bool = false", &AssignStmt{"x", "bool", &BoolExpr{false, 13}, 0})
-	test("let x: bool = 5 < 4", &AssignStmt{"x", "bool", &LessThanExpr{&IntExpr{5, 13}, &IntExpr{4, 17}, 15}, 0})
+			&SubExpr{&IntExpr{3}, &IntExpr{4}},
+			&IdentExpr{"foo"},
+		},
+		0,
+	})
+
+	test("let x: bool = false", &AssignStmt{"x", &LiteralType{"bool"}, &BoolExpr{false}, 0})
+	test("let x: bool = 5 < 4", &AssignStmt{"x", &LiteralType{"bool"}, &LessThanExpr{&IntExpr{5}, &IntExpr{4}}, 0})
+	test("let x: (int) -> int = lambda", &AssignStmt{"x",
+		&ArrowType{
+			[]TypeExpression{&LiteralType{"int"}},
+			&LiteralType{"int"},
+		}, &IdentExpr{"lambda"}, 0})
+
+	test("let x: (int, bool) -> int = lambda", &AssignStmt{"x",
+		&ArrowType{
+			[]TypeExpression{&LiteralType{"int"}, &LiteralType{"bool"}},
+			&LiteralType{"int"},
+		}, &IdentExpr{"lambda"}, 0})
+
+	test("let x: (int) -> (int) -> bool = lambda", &AssignStmt{"x",
+		&ArrowType{
+			[]TypeExpression{&LiteralType{"int"}},
+			&ArrowType{
+				[]TypeExpression{&LiteralType{"int"}},
+				&LiteralType{"bool"},
+			},
+		}, &IdentExpr{"lambda"}, 0})
+
+	test("let x: ((int) -> bool) -> bool = lambda", &AssignStmt{"x",
+		&ArrowType{
+			[]TypeExpression{&ArrowType{[]TypeExpression{&LiteralType{"int"}}, &LiteralType{"bool"}}},
+			&LiteralType{"bool"},
+		},
+		&IdentExpr{"lambda"}, 0})
+
 }
 
 func TestParseProgram(t *testing.T) {
@@ -141,8 +173,8 @@ func TestParseProgram(t *testing.T) {
 	difference, _ := diff.Diff(
 		&AssignStmt{
 			Lhs:  "foo",
-			Tipe: "int",
-			Rhs:  &IntExpr{123, 17},
+			Tipe: &LiteralType{"int"},
+			Rhs:  &IntExpr{123},
 			Pos:  0,
 		},
 		program.Statements[0],
@@ -157,11 +189,10 @@ func TestParseProgram(t *testing.T) {
 	difference, _ = diff.Diff(
 		&AssignStmt{
 			Lhs:  "bar",
-			Tipe: "int",
+			Tipe: &LiteralType{"int"},
 			Rhs: &SubExpr{
-				Lhs: &IdentExpr{"foo", 38},
-				Rhs: &IntExpr{4, 44},
-				Pos: 42,
+				Lhs: &IdentExpr{"foo"},
+				Rhs: &IntExpr{4},
 			},
 			Pos: 21,
 		},
@@ -183,12 +214,10 @@ func TestParseBinaryExprAssociaticity(t *testing.T) {
 	_, node := parseExpression(lexer)
 	expected := &SubExpr{
 		Lhs: &AddExpr{
-			Lhs: &IntExpr{1, 0},
-			Rhs: &IntExpr{2, 3},
-			Pos: 1,
+			Lhs: &IntExpr{1},
+			Rhs: &IntExpr{2},
 		},
-		Rhs: &IntExpr{3, 7},
-		Pos: 5,
+		Rhs: &IntExpr{3},
 	}
 
 	difference, err := diff.Diff(expected, node)
@@ -199,6 +228,78 @@ func TestParseBinaryExprAssociaticity(t *testing.T) {
 		nodeRepr, _ := json.MarshalIndent(node, "", "  ")
 		expectedRepr, _ := json.MarshalIndent(expected, "", "  ")
 		t.Errorf("Failed to parse expression. Got %s, expected %s", nodeRepr, expectedRepr)
+
+	}
+}
+
+func TestParseFuncParams(t *testing.T) {
+	input := "(x: int, y: bool, z: (int) -> bool)"
+	lexer := lexer.New(&input)
+	_, node := parseFuncParams(lexer)
+	expected := []FunctionParameter{
+		{IdentExpr{"x"}, &LiteralType{"int"}},
+		{IdentExpr{"y"}, &LiteralType{"bool"}},
+		{IdentExpr{"z"}, &ArrowType{[]TypeExpression{&LiteralType{"int"}}, &LiteralType{"bool"}}},
+	}
+
+	difference, err := diff.Diff(expected, node)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(difference) != 0 {
+		nodeRepr, _ := json.MarshalIndent(node, "", "  ")
+		expectedRepr, _ := json.MarshalIndent(expected, "", "  ")
+		t.Errorf("Failed to parse expression. Got %s, expected %s", nodeRepr, expectedRepr)
+
+	}
+}
+
+func TestParseLambdaExpression(t *testing.T) {
+	input := `
+	let z: (int) -> bool = def (x: int) -> bool { 
+		let y: int = 5
+		x + y
+	}`
+	lexer := lexer.New(&input)
+	_, node, err := ParseStatement(lexer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := &AssignStmt{
+		"z",
+		&ArrowType{[]TypeExpression{&LiteralType{"int"}}, &LiteralType{"bool"}},
+		&LambdaExpr{
+			Parameters: []FunctionParameter{
+				{IdentExpr{"x"}, &LiteralType{"int"}},
+			},
+			Returns: &LiteralType{"bool"},
+			Body: BlockBodyExpr{
+				Statements: []Statement{
+					&AssignStmt{
+						Lhs:  "y",
+						Tipe: &LiteralType{"int"},
+						Rhs:  &IntExpr{5},
+						Pos:  47,
+					},
+				},
+				Final: &AddExpr{
+					Lhs: &IdentExpr{"x"},
+					Rhs: &IdentExpr{"y"},
+				},
+			},
+		},
+		0,
+	}
+
+	difference, err := diff.Diff(expected, node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(difference) != 0 {
+		// nodeRepr, _ := json.MarshalIndent(node, "", "  ")
+		// expectedRepr, _ := json.MarshalIndent(expected, "", "  ")
+		diff, _ := json.Marshal(difference)
+		t.Errorf("Failed to parse expression. Diff %s", diff)
 
 	}
 }
